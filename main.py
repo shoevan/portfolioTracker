@@ -27,16 +27,16 @@ if __name__ == '__main__':
 
     data = yf.download(nameTickers, period="3d", threads=1)
     dataDf = pd.DataFrame(data)
-
+    print(data)
     for ind, ticker in stocks.iterrows():
         name = ticker[0]
         units = ticker[1]
         priceBought = ticker[2]
-        dateOffset = 3
+        dateOffset = 2
         while math.isnan(dataDf['Adj Close'][name].iloc[dateOffset]):
             dateOffset -= 1
         prevClose = dataDf['Adj Close'][name].iloc[dateOffset]
-        dateOffset = 3
+        dateOffset = 2
         while math.isnan(dataDf['Adj Close']['AUD=X'].iloc[dateOffset]):
             dateOffset -= 1
         usdToAUD = dataDf['Adj Close']['AUD=X'].iloc[dateOffset]
@@ -61,6 +61,7 @@ if __name__ == '__main__':
         currPortValue += stonks[key][4]
     percPortChange = currPortValue / initPortValue * 100 - 100
 
+    print(stonks)
     print("Initial Portfolio Value is: " + str(initPortValue))
     print("Current Portfolio Value is: " + str(currPortValue))
     print("Percentage Portfolio Performance: " + str(percPortChange))
