@@ -2,6 +2,8 @@ import pandas as pd
 import yfinance as yf
 import math
 import matplotlib.pyplot as plt
+import sys
+import getopt
 from datetime import datetime as dt
 
 
@@ -12,10 +14,30 @@ def add_values_in_dict(sample_dict, keys, list_of_values):
     sample_dict[keys].extend(list_of_values)
     return sample_dict
 
-
-if __name__ == '__main__':
-    portfolio = pd.read_excel(r'E:\Users\Sajib Ahmed (Shovon)\Dropbox\Dropbox\Stock Portfolio.xlsx', usecols="A:C")
-    portValue = pd.read_csv(r'E:\Users\Sajib Ahmed (Shovon)\Dropbox\Dropbox\Portfolio Value Tracking.csv')
+def main(argv):
+    portfolioDir = ''
+    portValueDir = ''
+    try:
+        opts, args = getopt.getopt(argv, "hi:o:", ["ifile=", "ofile="])
+    except getopt.GetoptError:
+        print
+        'main.py -i <portfolio path> -o <portfolio output directory>'
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            print
+            'test.py -i <portfolio path> -o <portfolio output directory>'
+            sys.exit()
+        elif opt in ("-i", "--ifile"):
+            portfolioDir = arg
+        elif opt in ("-o", "--ofile"):
+            portValueDir = arg
+    print('Input file is "', portfolioDir)
+    print('Output file is "', portValueDir)
+    # portfolio = pd.read_excel(r'E:\Users\Sajib Ahmed (Shovon)\Dropbox\Dropbox\Stock Portfolio.xlsx', usecols="A:C")
+    portfolio = pd.read_excel(portfolioDir, usecols="A:C")
+    # portValue = pd.read_csv(r'E:\Users\Sajib Ahmed (Shovon)\Dropbox\Dropbox\Portfolio Value Tracking.csv')
+    portValue = pd.read_csv(portValueDir)
     stocks = pd.DataFrame(portfolio)
     portValDf = pd.DataFrame(portValue)
     stocks = stocks.dropna()
@@ -74,10 +96,15 @@ if __name__ == '__main__':
         portValDf.iloc[len(portValDf) - 1, 1] = str(float("{:.2f}".format(currPortValue)))
         portValDf.iloc[len(portValDf) - 1, 2] = str(float("{:.2f}".format(percPortChange)))
 
-    portValDf.to_csv(r'E:\Users\Sajib Ahmed (Shovon)\Dropbox\Dropbox\Portfolio Value Tracking.csv', index=False)
+    # portValDf.to_csv(r'E:\Users\Sajib Ahmed (Shovon)\Dropbox\Dropbox\Portfolio Value Tracking.csv', index=False)
+    portValDf.to_csv(portValueDir, index=False)
     plt.figure(figsize=(16, 9))
     plt.plot_date(portValDf['Date'], portValDf['Value'], xdate=True)
     plt.title("Portfolio Performance over time")
     plt.ylabel("Portfolio Value ($)")
     plt.xlabel("Date")
     plt.show()
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
+
