@@ -11,8 +11,25 @@ def add_values_in_dict(sample_dict, keys, list_of_values):
     """Append multiple values to a key in the given dictionary"""
     if keys not in sample_dict:
         sample_dict[keys] = list()
-    sample_dict[keys].extend(list_of_values)
+        sample_dict[keys].extend(list_of_values)
     return sample_dict
+
+def dollarCostAveragingHandler(stonks, name, units, priceBought, valueAUD, purchaseValueAUD):
+    initUnits = stonks[name][0]
+    initPriceBought = stonks[name][1]
+    initValueAUD = stonks[name][3]
+    initPurchaseValueAUD = stonks[name][4]
+
+    print("Values here ", initUnits, units, initPriceBought, priceBought, initValueAUD, valueAUD, initPurchaseValueAUD, purchaseValueAUD)
+    #[Units, Initial price, Latest closing price, Initial AUD asset value, Current AUD asset value, % returns]
+    stonks[name][0] = float(initUnits) + units
+    stonks[name][1] = (initPriceBought * initUnits + priceBought * units) / stonks[name][0]
+    stonks[name][3] = initValueAUD + valueAUD
+    stonks[name][4] = initPurchaseValueAUD + purchaseValueAUD
+    stonks[name][5] = stonks[name][4] / stonks[name][3] * 100 - 100
+
+    print("Final values: ", stonks[name][0], stonks[name][1], stonks[name][3], stonks[name][4], stonks[name][5])
+    return stonks
 
 def main(argv):
     portfolioDir = ''
@@ -34,47 +51,62 @@ def main(argv):
             portValueDir = arg
     print('Input file is "', portfolioDir)
     print('Output file is "', portValueDir)
-    # portfolio = pd.read_excel(r'E:\Users\Sajib Ahmed (Shovon)\Dropbox\Dropbox\Stock Portfolio.xlsx', usecols="A:C")
-    portfolio = pd.read_excel(portfolioDir, usecols="A:C")
-    # portValue = pd.read_csv(r'E:\Users\Sajib Ahmed (Shovon)\Dropbox\Dropbox\Portfolio Value Tracking.csv')
+    portfolio = pd.read_excel(portfolioDir, usecols="B:D")
     portValue = pd.read_csv(portValueDir)
+    #Import initial portfolio investment and output csv as a DataFrame
     stocks = pd.DataFrame(portfolio)
     portValDf = pd.DataFrame(portValue)
+    print(stocks)
+    #Drops any empty values
     stocks = stocks.dropna()
     stonks = {}
+    #Require this
     nameTickers = "AUD=X"
-    for ind, ticker in stocks.iterrows():
-        nameTickers += " " + ticker[0]
-        stonks = add_values_in_dict(stonks, ticker[0], ['', '', '', '', '', ''])
+    for ticker in stocks.itertuples():
+        if ticker.Ticker not in stonks:
+            nameTickers += " " + ticker.Ticker
+            #stonks: {Ticker: [Units, Initial price, Latest closing price, Initial AUD asset value, Current AUD asset value, % returns]}
+            stonks = add_values_in_dict(stonks, ticker.Ticker, ['', '', '', '', '', ''])
 
-    data = yf.download(nameTickers, period="3d", threads=1)
-    dataDf = pd.DataFrame(data)
-    print(data)
-    for ind, ticker in stocks.iterrows():
-        name = ticker[0]
-        units = ticker[1]
-        priceBought = ticker[2]
+    dataDf = pd.DataFrame(yf.download(nameTickers, period="3d", prepost=True, threads=1))
+    stuff = yf.Tickers(nameTickers)
+    #Get latest USD/AUD exchange rate
+    #Start from todays current date which is the 3rd row, iterate back until value is not null
+    dateOffset = 2
+    print(dataDf['Adj Close']['AUD=X'])
+    while math.isnan(dataDf['Adj Close']['AUD=X'].iloc[dateOffset]):
+        dateOffset -= 1
+    usdToAUD = dataDf['Adj Close']['AUD=X'].iloc[dateOffset]
+    #Loop through each ticker
+    for ticker in stocks.itertuples():
+        name = ticker.Ticker
+        units = float(ticker.Units)
+        priceBought = float(ticker.Price)
         dateOffset = 2
         while math.isnan(dataDf['Adj Close'][name].iloc[dateOffset]):
             dateOffset -= 1
         prevClose = dataDf['Adj Close'][name].iloc[dateOffset]
-        dateOffset = 2
-        while math.isnan(dataDf['Adj Close']['AUD=X'].iloc[dateOffset]):
-            dateOffset -= 1
-        usdToAUD = dataDf['Adj Close']['AUD=X'].iloc[dateOffset]
+        #If the ticker is for ASX
         if name.endswith("AX"):
             initValueAUD = units * priceBought
             currValueAUD = units * prevClose
+            priceBoughtAUD = priceBought
+        #If ticker is is measured in USD
         else:
             initValueAUD = units * priceBought * usdToAUD
             currValueAUD = units * prevClose * usdToAUD
-        percChange = currValueAUD / initValueAUD * 100 - 100
-        stonks[name][0] = units
-        stonks[name][1] = priceBought
-        stonks[name][2] = prevClose
-        stonks[name][3] = initValueAUD
-        stonks[name][4] = currValueAUD
-        stonks[name][5] = percChange
+            priceBoughtAUD = priceBought * usdToAUD
+        if stonks[name][0]:
+            print(name, " in stonks")
+            stonks = dollarCostAveragingHandler(stonks, name, units, priceBought, initValueAUD, currValueAUD)
+        else:
+            percChange = currValueAUD / initValueAUD * 100 - 100
+            stonks[name][0] = units
+            stonks[name][1] = priceBought
+            stonks[name][2] = prevClose
+            stonks[name][3] = initValueAUD
+            stonks[name][4] = currValueAUD
+            stonks[name][5] = percChange
 
     initPortValue = 0
     currPortValue = 0
@@ -88,6 +120,7 @@ def main(argv):
     print("Current Portfolio Value is: " + str(currPortValue))
     print("Percentage Portfolio Performance: " + str(percPortChange))
 
+    #Find if .csv already has a value for todays date
     if portValDf.iloc[len(portValDf) - 1][0] != dt.today().strftime('%d/%m/%Y'):
         df2 = pd.DataFrame([[dt.today().strftime('%d/%m/%Y'), currPortValue, percPortChange]],
                            columns=['Date', 'Value', 'Percentage'])
