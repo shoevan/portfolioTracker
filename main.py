@@ -6,6 +6,31 @@ import sys
 import getopt
 from datetime import datetime as dt
 
+class Stock:
+    def __init__(self, ticker, units, initialPrice):
+        self.ticker = ticker
+        self.units = units
+        self.initialPrice = initialPrice
+
+    def dollarCostAveragingHandler(self, units, priceBought, valueAUD, purchaseValueAUD):
+        initUnits = self.units
+        initPriceBought = stonks[name][1]
+        initValueAUD = stonks[name][3]
+        initPurchaseValueAUD = stonks[name][4]
+
+        print("Values here ", initUnits, units, initPriceBought, priceBought, initValueAUD, valueAUD,
+              initPurchaseValueAUD, purchaseValueAUD)
+        # [Units, Initial price, Latest closing price, Initial AUD asset value, Current AUD asset value, % returns]
+        self.units  = self.units + units
+        self.initialPrice = (self.initialPrice * initUnits + priceBought * units) / self.units
+        stonks[name][3] = initValueAUD + valueAUD
+        stonks[name][4] = initPurchaseValueAUD + purchaseValueAUD
+        stonks[name][5] = stonks[name][4] / stonks[name][3] * 100 - 100
+
+        print("Final values: ", stonks[name][0], stonks[name][1], stonks[name][3], stonks[name][4], stonks[name][5])
+        return stonks
+
+
 
 def add_values_in_dict(sample_dict, keys, list_of_values):
     """Append multiple values to a key in the given dictionary"""
@@ -13,6 +38,12 @@ def add_values_in_dict(sample_dict, keys, list_of_values):
         sample_dict[keys] = list()
         sample_dict[keys].extend(list_of_values)
     return sample_dict
+
+def plotPieChart(labels, value):
+    fig1, ax1 = plt.subplots()
+    ax1.pie(value, labels=labels, autopct='%1.1f%%', startangle=90)
+    ax1.axis('equal')
+    plt.show()
 
 def dollarCostAveragingHandler(stonks, name, units, priceBought, valueAUD, purchaseValueAUD):
     initUnits = stonks[name][0]
@@ -129,6 +160,12 @@ def main(argv):
         portValDf.iloc[len(portValDf) - 1, 1] = str(float("{:.2f}".format(currPortValue)))
         portValDf.iloc[len(portValDf) - 1, 2] = str(float("{:.2f}".format(percPortChange)))
 
+    tickerList = []
+    tickerValue = []
+    for key in stonks:
+        tickerList.append(key)
+        tickerValue.append(stonks[key][4])
+    plotPieChart(tickerList, tickerValue)
     # portValDf.to_csv(r'E:\Users\Sajib Ahmed (Shovon)\Dropbox\Dropbox\Portfolio Value Tracking.csv', index=False)
     portValDf.to_csv(portValueDir, index=False)
     plt.figure(figsize=(16, 9))
