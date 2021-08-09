@@ -112,6 +112,7 @@ def main(argv):
             #stonks = add_values_in_dict(stonks, ticker.Ticker, ['', '', '', '', '', ''])
 
     dataDf = pd.DataFrame(yf.download(nameTickers, period="3d", prepost=True, threads=1))
+    logging.debug(dataDf.to_string())
     #Get latest USD/AUD exchange rate
     #Start from todays current date which is the 3rd row, iterate back until value is not null
     dateOffset = 2
