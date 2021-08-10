@@ -115,7 +115,7 @@ def main(argv):
     logging.debug(dataDf.to_string())
     #Get latest USD/AUD exchange rate
     #Start from todays current date which is the 3rd row, iterate back until value is not null
-    dateOffset = 2
+    dateOffset = len(dataDf['Adj Close']['AUD=X'].index) - 1
     while math.isnan(dataDf['Adj Close']['AUD=X'].iloc[dateOffset]):
         dateOffset -= 1
     usdToAUD = dataDf['Adj Close']['AUD=X'].iloc[dateOffset]
@@ -124,7 +124,7 @@ def main(argv):
         if ticker.Ticker in stonks:
             stonks[ticker.Ticker].dollarCostAveragingHandler(ticker.Units, ticker.Price, usdToAUD)
         else:
-            dateOffset = 2
+            dateOffset = len(dataDf['Adj Close'][ticker.Ticker].index) - 1
             while math.isnan(dataDf['Adj Close'][ticker.Ticker].iloc[dateOffset]):
                 dateOffset -= 1
             prevClose = dataDf['Adj Close'][ticker.Ticker].iloc[dateOffset]
