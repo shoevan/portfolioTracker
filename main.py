@@ -4,118 +4,148 @@ import math
 import matplotlib.pyplot as plt
 import sys
 import getopt
+import logging
 from datetime import datetime as dt
 
+class Security:
+    def __init__(self, ticker, units, dcaPrice, prevClose, AUD_exchange_rate):
+        self.ticker = ticker
+        self.units = units
+        self.dcaPrice = dcaPrice
+        self.currPrice = prevClose
+        self.AUD_exchange_rate = AUD_exchange_rate
 
-def add_values_in_dict(sample_dict, keys, list_of_values):
-    """Append multiple values to a key in the given dictionary"""
-    if keys not in sample_dict:
-        sample_dict[keys] = list()
-        sample_dict[keys].extend(list_of_values)
-    return sample_dict
+        if self.ticker.endswith("AX"):
+            self.AUD_exchange_rate = 1
 
-def dollarCostAveragingHandler(stonks, name, units, priceBought, valueAUD, purchaseValueAUD):
-    initUnits = stonks[name][0]
-    initPriceBought = stonks[name][1]
-    initValueAUD = stonks[name][3]
-    initPurchaseValueAUD = stonks[name][4]
+        self.initValueAUD = self.setValueAUD(self.dcaPrice)
+        self.currValueAUD = self.setValueAUD(self.currPrice)
+        self.percentReturns = self.calculatePercentReturns()
 
-    print("Values here ", initUnits, units, initPriceBought, priceBought, initValueAUD, valueAUD, initPurchaseValueAUD, purchaseValueAUD)
-    #[Units, Initial price, Latest closing price, Initial AUD asset value, Current AUD asset value, % returns]
-    stonks[name][0] = float(initUnits) + units
-    stonks[name][1] = (initPriceBought * initUnits + priceBought * units) / stonks[name][0]
-    stonks[name][3] = initValueAUD + valueAUD
-    stonks[name][4] = initPurchaseValueAUD + purchaseValueAUD
-    stonks[name][5] = stonks[name][4] / stonks[name][3] * 100 - 100
+    def dollarCostAveragingHandler(self, units, priceBought, AUD_exchange_rate):
+        initUnits = self.units
+        initPriceBought = self.dcaPrice
+        currPrice = self.currPrice
+        initValueAUD = self.initValueAUD
+        currValueAUD = self.currValueAUD
 
-    print("Final values: ", stonks[name][0], stonks[name][1], stonks[name][3], stonks[name][4], stonks[name][5])
-    return stonks
+#        print("Values here ", self.ticker, initUnits, units, initPriceBought, priceBought, currPrice, initValueAUD, currValueAUD, AUD_exchange_rate)
+        # [Units, Initial price, Latest closing price, Initial AUD asset value, Current AUD asset value, % returns]
+        self.units  = initUnits + units
+        self.dcaPrice = (initPriceBought * initUnits + priceBought * units) / self.units
+        self.initValueAUD = initValueAUD + units * priceBought * AUD_exchange_rate
+        self.currValueAUD = currValueAUD + units * currPrice * AUD_exchange_rate
+        self.percentReturns = self.calculatePercentReturns()
+
+
+#        print("Final values: ", self.ticker, self.units, self.dcaPrice, self.currPrice, self.initValueAUD, self.currValueAUD, self.percentReturns)
+
+    def getTicker(self):
+        return self.ticker
+
+    def getUnits(self):
+        return self.units
+
+    def getInitPrice(self):
+        return self.dcaPrice
+
+    def getCurrPrice(self):
+        return self.currPrice
+
+    def getInitValue(self):
+        return self.initValueAUD
+
+    def getCurrValue(self):
+        return self.currValueAUD
+
+    def getPercentReturns(self):
+        return self.percentReturns
+
+    def setValueAUD(self, price):
+        return self.units * price * self.AUD_exchange_rate
+
+    def calculatePercentReturns(self):
+        return self.currValueAUD / self.initValueAUD * 100 - 100
+
+def plotPieChart(labels, value):
+    fig1, ax1 = plt.subplots()
+    ax1.pie(value, labels=labels, autopct='%1.1f%%', startangle=90)
+    ax1.axis('equal')
+    plt.show()
 
 def main(argv):
+
+    logging.basicConfig(filename="portfolioTracker.log", encoding="utf-8", filemode="w", format="%(asctime)s - %(levelname)s: %(message)s", level=logging.DEBUG)
     portfolioDir = ''
     portValueDir = ''
     try:
         opts, args = getopt.getopt(argv, "hi:o:", ["ifile=", "ofile="])
     except getopt.GetoptError:
-        print
-        'main.py -i <portfolio path> -o <portfolio output directory>'
+        print('main.py -i <portfolio path> -o <portfolio output directory>')
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print
-            'test.py -i <portfolio path> -o <portfolio output directory>'
+            print('test.py -i <portfolio path> -o <portfolio output directory>')
             sys.exit()
         elif opt in ("-i", "--ifile"):
             portfolioDir = arg
         elif opt in ("-o", "--ofile"):
             portValueDir = arg
-    print('Input file is "', portfolioDir)
-    print('Output file is "', portValueDir)
+    logging.info("Input file is: %s", portfolioDir)
+    logging.info("Output file is: %s", portValueDir)
     portfolio = pd.read_excel(portfolioDir, usecols="B:D")
     portValue = pd.read_csv(portValueDir)
     #Import initial portfolio investment and output csv as a DataFrame
     stocks = pd.DataFrame(portfolio)
     portValDf = pd.DataFrame(portValue)
-    print(stocks)
     #Drops any empty values
     stocks = stocks.dropna()
+    logging.debug("Stock portfolio input file: %s", stocks)
     stonks = {}
-    #Require this
+    #Build a list of unique ticker names to query Yahoo Finance with - need the current USD/AUD exhange rate so prefilled
+    # logging.debug("Stock portfolio input file: %s", stocks)
     nameTickers = "AUD=X"
     for ticker in stocks.itertuples():
-        if ticker.Ticker not in stonks:
+        if ticker.Ticker not in nameTickers:
             nameTickers += " " + ticker.Ticker
             #stonks: {Ticker: [Units, Initial price, Latest closing price, Initial AUD asset value, Current AUD asset value, % returns]}
-            stonks = add_values_in_dict(stonks, ticker.Ticker, ['', '', '', '', '', ''])
+            #stonks = add_values_in_dict(stonks, ticker.Ticker, ['', '', '', '', '', ''])
 
     dataDf = pd.DataFrame(yf.download(nameTickers, period="3d", prepost=True, threads=1))
-    stuff = yf.Tickers(nameTickers)
+    logging.debug(dataDf.to_string())
     #Get latest USD/AUD exchange rate
     #Start from todays current date which is the 3rd row, iterate back until value is not null
-    dateOffset = 2
-    print(dataDf['Adj Close']['AUD=X'])
+    dateOffset = len(dataDf['Adj Close']['AUD=X'].index) - 1
     while math.isnan(dataDf['Adj Close']['AUD=X'].iloc[dateOffset]):
         dateOffset -= 1
     usdToAUD = dataDf['Adj Close']['AUD=X'].iloc[dateOffset]
     #Loop through each ticker
     for ticker in stocks.itertuples():
-        name = ticker.Ticker
-        units = float(ticker.Units)
-        priceBought = float(ticker.Price)
-        dateOffset = 2
-        while math.isnan(dataDf['Adj Close'][name].iloc[dateOffset]):
-            dateOffset -= 1
-        prevClose = dataDf['Adj Close'][name].iloc[dateOffset]
-        #If the ticker is for ASX
-        if name.endswith("AX"):
-            initValueAUD = units * priceBought
-            currValueAUD = units * prevClose
-            priceBoughtAUD = priceBought
-        #If ticker is is measured in USD
+        if ticker.Ticker in stonks:
+            stonks[ticker.Ticker].dollarCostAveragingHandler(ticker.Units, ticker.Price, usdToAUD)
         else:
-            initValueAUD = units * priceBought * usdToAUD
-            currValueAUD = units * prevClose * usdToAUD
-            priceBoughtAUD = priceBought * usdToAUD
-        if stonks[name][0]:
-            print(name, " in stonks")
-            stonks = dollarCostAveragingHandler(stonks, name, units, priceBought, initValueAUD, currValueAUD)
-        else:
-            percChange = currValueAUD / initValueAUD * 100 - 100
-            stonks[name][0] = units
-            stonks[name][1] = priceBought
-            stonks[name][2] = prevClose
-            stonks[name][3] = initValueAUD
-            stonks[name][4] = currValueAUD
-            stonks[name][5] = percChange
-
+            dateOffset = len(dataDf['Adj Close'][ticker.Ticker].index) - 1
+            while math.isnan(dataDf['Adj Close'][ticker.Ticker].iloc[dateOffset]):
+                dateOffset -= 1
+            prevClose = dataDf['Adj Close'][ticker.Ticker].iloc[dateOffset]
+            stonks[ticker.Ticker] = Security(ticker.Ticker, ticker.Units, ticker.Price, prevClose, usdToAUD)
     initPortValue = 0
     currPortValue = 0
-    for key in stonks:
-        initPortValue += stonks[key][3]
-        currPortValue += stonks[key][4]
+
+    portfolioDf = {"Ticker": [], "Units Purchased": [], "Initial Price": [], "Latest Close": [], "Initial AUD Asset Value": [], "Current AUD Asset Value": [], "Percentage Returns": []}
+    for key in sorted(stonks):
+        portfolioDf["Ticker"].append(stonks[key].getTicker())
+        portfolioDf["Units Purchased"].append(stonks[key].getUnits())
+        portfolioDf["Initial Price"].append(stonks[key].getInitPrice())
+        portfolioDf["Latest Close"].append(stonks[key].getCurrPrice())
+        portfolioDf["Initial AUD Asset Value"].append(stonks[key].getInitValue())
+        portfolioDf["Current AUD Asset Value"].append(stonks[key].getCurrValue())
+        portfolioDf["Percentage Returns"].append(stonks[key].getPercentReturns())
+        initPortValue += stonks[key].getInitValue()
+        currPortValue += stonks[key].getCurrValue()
     percPortChange = currPortValue / initPortValue * 100 - 100
 
-    print(stonks)
+    print(pd.DataFrame(portfolioDf).to_string())
     print("Initial Portfolio Value is: " + str(initPortValue))
     print("Current Portfolio Value is: " + str(currPortValue))
     print("Percentage Portfolio Performance: " + str(percPortChange))
@@ -129,7 +159,12 @@ def main(argv):
         portValDf.iloc[len(portValDf) - 1, 1] = str(float("{:.2f}".format(currPortValue)))
         portValDf.iloc[len(portValDf) - 1, 2] = str(float("{:.2f}".format(percPortChange)))
 
-    # portValDf.to_csv(r'E:\Users\Sajib Ahmed (Shovon)\Dropbox\Dropbox\Portfolio Value Tracking.csv', index=False)
+    tickerList = []
+    tickerValue = []
+    for key in stonks:
+        tickerList.append(key)
+        tickerValue.append(stonks[key].getCurrValue())
+    plotPieChart(tickerList, tickerValue)
     portValDf.to_csv(portValueDir, index=False)
     plt.figure(figsize=(16, 9))
     plt.plot_date(portValDf['Date'], portValDf['Value'], xdate=True)
