@@ -7,6 +7,8 @@ import getopt
 import logging
 from datetime import datetime as dt
 
+WRITE_TO_FILE=1
+
 class Security:
     def __init__(self, ticker, units, dcaPrice, prevClose, AUD_exchange_rate):
         self.ticker = ticker
@@ -22,23 +24,29 @@ class Security:
         self.currValueAUD = self.setValueAUD(self.currPrice)
         self.percentReturns = self.calculatePercentReturns()
 
-    def dollarCostAveragingHandler(self, units, priceBought, AUD_exchange_rate):
+    def dollarCostAveragingHandler(self, units, priceBought):
         initUnits = self.units
         initPriceBought = self.dcaPrice
         currPrice = self.currPrice
         initValueAUD = self.initValueAUD
         currValueAUD = self.currValueAUD
 
-#        print("Values here ", self.ticker, initUnits, units, initPriceBought, priceBought, currPrice, initValueAUD, currValueAUD, AUD_exchange_rate)
-        # [Units, Initial price, Latest closing price, Initial AUD asset value, Current AUD asset value, % returns]
         self.units  = initUnits + units
         self.dcaPrice = (initPriceBought * initUnits + priceBought * units) / self.units
-        self.initValueAUD = initValueAUD + units * priceBought * AUD_exchange_rate
-        self.currValueAUD = currValueAUD + units * currPrice * AUD_exchange_rate
+        self.initValueAUD = initValueAUD + units * priceBought * self.AUD_exchange_rate
+        self.currValueAUD = currValueAUD + units * currPrice * self.AUD_exchange_rate
         self.percentReturns = self.calculatePercentReturns()
 
-
-#        print("Final values: ", self.ticker, self.units, self.dcaPrice, self.currPrice, self.initValueAUD, self.currValueAUD, self.percentReturns)
+    def sellEventHandler(self, units, priceSold):
+        if(self.units < units):
+            print(f"Error: Units sold for {self.getTicker()} cannot be greater than units pre-existing in portfolio. "
+                  f"Please update the portfolio spreadsheet with corrected units")
+            sys.exit()
+        else:
+            self.units = self.units - units
+            self.initValueAUD = self.setValueAUD(self.dcaPrice)
+            self.currValueAUD = self.setValueAUD(self.currPrice)
+        return (priceSold - self.dcaPrice) * self.units
 
     def getTicker(self):
         return self.ticker
@@ -78,6 +86,14 @@ def main(argv):
     logging.basicConfig(filename="portfolioTracker.log", encoding="utf-8", filemode="w", format="%(asctime)s - %(levelname)s: %(message)s", level=logging.DEBUG)
     portfolioDir = ''
     portValueDir = ''
+    stonks = {}
+    nameTickers = "AUD=X"
+    initPortValue = 0
+    currPortValue = 0
+    realisedProfitLoss = 0
+    tickerList = []
+    tickerValue = []
+
     try:
         opts, args = getopt.getopt(argv, "hi:o:", ["ifile=", "ofile="])
     except getopt.GetoptError:
@@ -93,7 +109,7 @@ def main(argv):
             portValueDir = arg
     logging.info("Input file is: %s", portfolioDir)
     logging.info("Output file is: %s", portValueDir)
-    portfolio = pd.read_excel(portfolioDir, usecols="B:D")
+    portfolio = pd.read_excel(portfolioDir, usecols="B:E")
     portValue = pd.read_csv(portValueDir)
     #Import initial portfolio investment and output csv as a DataFrame
     stocks = pd.DataFrame(portfolio)
@@ -101,36 +117,39 @@ def main(argv):
     #Drops any empty values
     stocks = stocks.dropna()
     logging.debug("Stock portfolio input file: %s", stocks)
-    stonks = {}
+
     #Build a list of unique ticker names to query Yahoo Finance with - need the current USD/AUD exhange rate so prefilled
     # logging.debug("Stock portfolio input file: %s", stocks)
-    nameTickers = "AUD=X"
     for ticker in stocks.itertuples():
         if ticker.Ticker not in nameTickers:
             nameTickers += " " + ticker.Ticker
-            #stonks: {Ticker: [Units, Initial price, Latest closing price, Initial AUD asset value, Current AUD asset value, % returns]}
-            #stonks = add_values_in_dict(stonks, ticker.Ticker, ['', '', '', '', '', ''])
 
     dataDf = pd.DataFrame(yf.download(nameTickers, period="3d", prepost=True, threads=1))
     logging.debug(dataDf.to_string())
     #Get latest USD/AUD exchange rate
-    #Start from todays current date which is the 3rd row, iterate back until value is not null
+    #Start from the last row available, iterate back until value is not null to get latest closing value
     dateOffset = len(dataDf['Adj Close']['AUD=X'].index) - 1
     while math.isnan(dataDf['Adj Close']['AUD=X'].iloc[dateOffset]):
         dateOffset -= 1
     usdToAUD = dataDf['Adj Close']['AUD=X'].iloc[dateOffset]
     #Loop through each ticker
     for ticker in stocks.itertuples():
-        if ticker.Ticker in stonks:
-            stonks[ticker.Ticker].dollarCostAveragingHandler(ticker.Units, ticker.Price, usdToAUD)
-        else:
-            dateOffset = len(dataDf['Adj Close'][ticker.Ticker].index) - 1
-            while math.isnan(dataDf['Adj Close'][ticker.Ticker].iloc[dateOffset]):
-                dateOffset -= 1
-            prevClose = dataDf['Adj Close'][ticker.Ticker].iloc[dateOffset]
-            stonks[ticker.Ticker] = Security(ticker.Ticker, ticker.Units, ticker.Price, prevClose, usdToAUD)
-    initPortValue = 0
-    currPortValue = 0
+        if ticker.Action == "BUY":
+            if ticker.Ticker in stonks:
+                stonks[ticker.Ticker].dollarCostAveragingHandler(ticker.Units, ticker.Price)
+            else:
+                dateOffset = len(dataDf['Adj Close'][ticker.Ticker].index) - 1
+                while math.isnan(dataDf['Adj Close'][ticker.Ticker].iloc[dateOffset]):
+                    dateOffset -= 1
+                prevClose = dataDf['Adj Close'][ticker.Ticker].iloc[dateOffset]
+                stonks[ticker.Ticker] = Security(ticker.Ticker, ticker.Units, ticker.Price, prevClose, usdToAUD)
+        elif ticker.Action == "SELL":
+            if ticker.Ticker in stonks:
+                realisedProfitLoss += stonks[ticker.Ticker].sellEventHandler(ticker.Units, ticker.Price)
+            else:
+                print(f"{ticker.Ticker} has not been bought prior to the sell event, please review the portfolio "
+                      f"spreadsheet")
+                sys.exit()
 
     portfolioDf = {"Ticker": [], "Units Purchased": [], "Initial Price": [], "Latest Close": [], "Initial AUD Asset Value": [], "Current AUD Asset Value": [], "Percentage Returns": []}
     for key in sorted(stonks):
@@ -149,6 +168,7 @@ def main(argv):
     print("Initial Portfolio Value is: " + str(initPortValue))
     print("Current Portfolio Value is: " + str(currPortValue))
     print("Percentage Portfolio Performance: " + str(percPortChange))
+    print(f"Realised Profit/Loss: ${realisedProfitLoss}AUD")
 
     #Find if .csv already has a value for todays date
     if portValDf.iloc[len(portValDf) - 1][0] != dt.today().strftime('%d/%m/%Y'):
@@ -159,18 +179,18 @@ def main(argv):
         portValDf.iloc[len(portValDf) - 1, 1] = str(float("{:.2f}".format(currPortValue)))
         portValDf.iloc[len(portValDf) - 1, 2] = str(float("{:.2f}".format(percPortChange)))
 
-    tickerList = []
-    tickerValue = []
     for key in stonks:
         tickerList.append(key)
         tickerValue.append(stonks[key].getCurrValue())
     plotPieChart(tickerList, tickerValue)
-    portValDf.to_csv(portValueDir, index=False)
+    if WRITE_TO_FILE:
+        portValDf.to_csv(portValueDir, index=False)
     plt.figure(figsize=(16, 9))
     plt.plot_date(portValDf['Date'], portValDf['Value'], xdate=True)
     plt.title("Portfolio Performance over time")
     plt.ylabel("Portfolio Value ($)")
     plt.xlabel("Date")
+    plt.tight_layout
     plt.show()
 
 if __name__ == '__main__':
