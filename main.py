@@ -93,6 +93,7 @@ def main(argv):
     realisedProfitLoss = 0
     tickerList = []
     tickerValue = []
+    csvFound = True
 
     try:
         opts, args = getopt.getopt(argv, "hi:o:", ["ifile=", "ofile="])
@@ -109,14 +110,32 @@ def main(argv):
             portValueDir = arg
     logging.info("Input file is: %s", portfolioDir)
     logging.info("Output file is: %s", portValueDir)
-    portfolio = pd.read_excel(portfolioDir, usecols="B:E")
-    portValue = pd.read_csv(portValueDir)
-    #Import initial portfolio investment and output csv as a DataFrame
-    stocks = pd.DataFrame(portfolio)
-    portValDf = pd.DataFrame(portValue)
-    #Drops any empty values
-    stocks = stocks.dropna()
-    logging.debug("Stock portfolio input file: %s", stocks)
+
+    # Import initial portfolio investment and output csv as a DataFrame
+    try:
+        portfolio = pd.read_excel(portfolioDir, usecols="B:E")
+        stocks = pd.DataFrame(portfolio)
+        # Drops any empty values
+        stocks = stocks.dropna()
+        logging.debug("Stock portfolio input file: %s", stocks)
+    except FileNotFoundError:
+        print(f"{portfolio} not found. Require an excel spreadsheet listing transactions. Please see script usage page")
+        sys.exit()
+    try:
+        portValue = pd.read_csv(portValueDir)
+        portValDf = pd.DataFrame(portValue)
+    except FileNotFoundError:
+        userResponse = input(f"{portValueDir} not found. Should a new csv be created? [y/n]: ")
+        if userResponse == "y":
+            print("Creating new csv...")
+            csvFound = False
+        elif userResponse == "n":
+            print("Not creating a new csv, please review arguments, exiting...")
+            sys.exit()
+        else:
+            print("Correct input of [y/n] not detected, exiting...")
+            sys.exit()
+
 
     #Build a list of unique ticker names to query Yahoo Finance with - need the current USD/AUD exhange rate so prefilled
     # logging.debug("Stock portfolio input file: %s", stocks)
@@ -171,20 +190,25 @@ def main(argv):
     print(f"Realised Profit/Loss: ${realisedProfitLoss}AUD")
 
     #Find if .csv already has a value for todays date
-    if portValDf.iloc[len(portValDf) - 1][0] != dt.today().strftime('%d/%m/%Y'):
-        df2 = pd.DataFrame([[dt.today().strftime('%d/%m/%Y'), currPortValue, percPortChange]],
-                           columns=['Date', 'Value', 'Percentage'])
-        portValDf = portValDf.append(df2, ignore_index=True)
+    if csvFound:
+        if portValDf.iloc[len(portValDf) - 1][0] != dt.today().strftime('%d/%m/%Y'):
+            df2 = pd.DataFrame([[dt.today().strftime('%d/%m/%Y'), currPortValue, percPortChange]],
+                               columns=['Date', 'Value', 'Percentage'])
+            portValDf = portValDf.append(df2, ignore_index=True)
+        else:
+            portValDf.iloc[len(portValDf) - 1, 1] = str(float("{:.2f}".format(currPortValue)))
+            portValDf.iloc[len(portValDf) - 1, 2] = str(float("{:.2f}".format(percPortChange)))
     else:
-        portValDf.iloc[len(portValDf) - 1, 1] = str(float("{:.2f}".format(currPortValue)))
-        portValDf.iloc[len(portValDf) - 1, 2] = str(float("{:.2f}".format(percPortChange)))
+        portValDf = pd.DataFrame([[dt.today().strftime('%d/%m/%Y'), currPortValue, percPortChange]], columns=["Date", "Value", "Percentage"])
+        portValDf.to_csv(portValueDir)
+
+    if WRITE_TO_FILE:
+        portValDf.to_csv(portValueDir, index=False)
 
     for key in stonks:
         tickerList.append(key)
         tickerValue.append(stonks[key].getCurrValue())
     plotPieChart(tickerList, tickerValue)
-    if WRITE_TO_FILE:
-        portValDf.to_csv(portValueDir, index=False)
     plt.figure(figsize=(16, 9))
     plt.plot_date(portValDf['Date'], portValDf['Value'], xdate=True)
     plt.title("Portfolio Performance over time")
