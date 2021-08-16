@@ -43,10 +43,12 @@ class Security:
                   f"Please update the portfolio spreadsheet with corrected units")
             sys.exit()
         else:
+            print("Units ", units)
             self.units = self.units - units
             self.initValueAUD = self.setValueAUD(self.dcaPrice)
             self.currValueAUD = self.setValueAUD(self.currPrice)
-        return (priceSold - self.dcaPrice) * self.units
+        if priceSold:
+            return (priceSold - self.dcaPrice) * self.units
 
     def getTicker(self):
         return self.ticker
@@ -153,6 +155,7 @@ def main(argv):
     usdToAUD = dataDf['Adj Close']['AUD=X'].iloc[dateOffset]
     #Loop through each ticker
     for ticker in stocks.itertuples():
+        print(ticker.Action)
         if ticker.Action == "BUY":
             if ticker.Ticker in stonks:
                 stonks[ticker.Ticker].dollarCostAveragingHandler(ticker.Units, ticker.Price)
@@ -162,9 +165,12 @@ def main(argv):
                     dateOffset -= 1
                 prevClose = dataDf['Adj Close'][ticker.Ticker].iloc[dateOffset]
                 stonks[ticker.Ticker] = Security(ticker.Ticker, ticker.Units, ticker.Price, prevClose, usdToAUD)
-        elif ticker.Action == "SELL":
+        elif ticker.Action == "SELL" or ticker.Action == "TRANSACTION":
             if ticker.Ticker in stonks:
-                realisedProfitLoss += stonks[ticker.Ticker].sellEventHandler(ticker.Units, ticker.Price)
+                if ticker.Action == "SELL":
+                    realisedProfitLoss += stonks[ticker.Ticker].sellEventHandler(ticker.Units, ticker.Price)
+                else:
+                    stonks[ticker.Ticker].sellEventHandler(ticker.Units, None)
             else:
                 print(f"{ticker.Ticker} has not been bought prior to the sell event, please review the portfolio "
                       f"spreadsheet")
