@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import sys
 import getopt
 import logging
+import openpyxl
 from datetime import datetime as dt
 
 WRITE_TO_FILE=1
@@ -19,6 +20,11 @@ class Security:
 
         if self.ticker.endswith("AX"):
             self.AUD_exchange_rate = 1
+            self.assetType = "AUS Market"
+        elif self.ticker.endswith("USD"):
+            self.assetType = "Cryptocurrency"
+        else:
+            self.assetType = "US Market"
 
         self.initValueAUD = self.setValueAUD(self.dcaPrice)
         self.currValueAUD = self.setValueAUD(self.currPrice)
@@ -43,7 +49,6 @@ class Security:
                   f"Please update the portfolio spreadsheet with corrected units")
             sys.exit()
         else:
-            print("Units ", units)
             self.units = self.units - units
             self.initValueAUD = self.setValueAUD(self.dcaPrice)
             self.currValueAUD = self.setValueAUD(self.currPrice)
@@ -53,6 +58,9 @@ class Security:
     def getTicker(self):
         return self.ticker
 
+    def getAssetType(self):
+        return self.assetType
+    
     def getUnits(self):
         return self.units
 
@@ -90,8 +98,9 @@ def main(argv):
     portValueDir = ''
     stonks = {}
     nameTickers = "AUD=X"
-    initPortValue = 0
-    currPortValue = 0
+    initPortValue = {"All": 0, "AUS Market": 0, "Cryptocurrency": 0, "US Market": 0}
+    currPortValue = {"All": 0, "AUS Market": 0, "Cryptocurrency": 0, "US Market": 0}
+    percPortChange = {"All": 0, "AUS Market": 0, "Cryptocurrency": 0, "US Market": 0}
     realisedProfitLoss = 0
     tickerList = []
     tickerValue = []
@@ -155,7 +164,6 @@ def main(argv):
     usdToAUD = dataDf['Adj Close']['AUD=X'].iloc[dateOffset]
     #Loop through each ticker
     for ticker in stocks.itertuples():
-        print(ticker.Action)
         if ticker.Action == "BUY":
             if ticker.Ticker in stonks:
                 stonks[ticker.Ticker].dollarCostAveragingHandler(ticker.Units, ticker.Price)
@@ -185,27 +193,44 @@ def main(argv):
         portfolioDf["Initial AUD Asset Value"].append(stonks[key].getInitValue())
         portfolioDf["Current AUD Asset Value"].append(stonks[key].getCurrValue())
         portfolioDf["Percentage Returns"].append(stonks[key].getPercentReturns())
-        initPortValue += stonks[key].getInitValue()
-        currPortValue += stonks[key].getCurrValue()
-    percPortChange = currPortValue / initPortValue * 100 - 100
+        initPortValue["All"] += stonks[key].getInitValue()
+        initPortValue[stonks[key].getAssetType()] += stonks[key].getInitValue()
+        currPortValue["All"] += stonks[key].getCurrValue()
+        currPortValue[stonks[key].getAssetType()] += stonks[key].getCurrValue()
+    percPortChange["All"] = currPortValue["All"] / initPortValue["All"] * 100 - 100
+    percPortChange["AUS Market"] = currPortValue["AUS Market"] / initPortValue["AUS Market"] * 100 - 100
+    percPortChange["Cryptocurrency"] = currPortValue["Cryptocurrency"] / initPortValue["Cryptocurrency"] * 100 - 100
+    percPortChange["US Market"] = currPortValue["US Market"] / initPortValue["US Market"] * 100 - 100
 
     print(pd.DataFrame(portfolioDf).to_string())
-    print("Initial Portfolio Value is: " + str(initPortValue))
-    print("Current Portfolio Value is: " + str(currPortValue))
-    print("Percentage Portfolio Performance: " + str(percPortChange))
-    print(f"Realised Profit/Loss: ${realisedProfitLoss}AUD")
+    print(f"Initial Portfolio Value is: ${initPortValue['All']:.2f}")
+    print(f"Current Portfolio Value is: ${currPortValue['All']:.2f}")
+    print(f"Percentage Portfolio Performance: {percPortChange['All']:.2f}")
+    print(f"Realised Profit/Loss: ${realisedProfitLoss}AUD\n")
+
+    print(f"Initial Aus Market Portfolio Value is: ${initPortValue['AUS Market']:.2f}")
+    print(f"Current Aus Market Portfolio Value is: ${currPortValue['AUS Market']:.2f}")
+    print(f"Aus Market Percentage Portfolio Performance: {percPortChange['AUS Market']:.2f}%\n")
+
+    print(f"Initial Cryptocurrency Portfolio Value is: ${initPortValue['Cryptocurrency']:.2f}")
+    print(f"Current Cryptocurrency Portfolio Value is: ${currPortValue['Cryptocurrency']:.2f}")
+    print(f"Cryptocurrency Percentage Portfolio Performance: {percPortChange['Cryptocurrency']:.2f}%\n")
+
+    print(f"US Market Initial Portfolio Value is: ${initPortValue['US Market']:.2f}")
+    print(f"US Market Current Portfolio Value is: ${currPortValue['US Market']:.2f}")
+    print(f"US Market Percentage Portfolio Performance: {percPortChange['US Market']:.2f}%")
 
     #Find if .csv already has a value for todays date
     if csvFound:
         if portValDf.iloc[len(portValDf) - 1][0] != dt.today().strftime('%d/%m/%Y'):
-            df2 = pd.DataFrame([[dt.today().strftime('%d/%m/%Y'), currPortValue, percPortChange]],
+            df2 = pd.DataFrame([[dt.today().strftime('%d/%m/%Y'), currPortValue["All"], percPortChange["All"]]],
                                columns=['Date', 'Value', 'Percentage'])
             portValDf = portValDf.append(df2, ignore_index=True)
         else:
-            portValDf.iloc[len(portValDf) - 1, 1] = str(float("{:.2f}".format(currPortValue)))
-            portValDf.iloc[len(portValDf) - 1, 2] = str(float("{:.2f}".format(percPortChange)))
+            portValDf.iloc[len(portValDf) - 1, 1] = str(float("{:.2f}".format(currPortValue["All"])))
+            portValDf.iloc[len(portValDf) - 1, 2] = str(float("{:.2f}".format(percPortChange["All"])))
     else:
-        portValDf = pd.DataFrame([[dt.today().strftime('%d/%m/%Y'), currPortValue, percPortChange]], columns=["Date", "Value", "Percentage"])
+        portValDf = pd.DataFrame([[dt.today().strftime('%d/%m/%Y'), currPortValue["All"], percPortChange["All"]]], columns=["Date", "Value", "Percentage"])
         portValDf.to_csv(portValueDir)
 
     if WRITE_TO_FILE:
@@ -214,8 +239,15 @@ def main(argv):
     for key in stonks:
         tickerList.append(key)
         tickerValue.append(stonks[key].getCurrValue())
-    plotPieChart(tickerList, tickerValue)
-    plt.figure(figsize=(16, 9))
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(32, 9))
+    plt.title("Portfolio Allocation")
+    ax1.pie(tickerValue, labels=tickerList, autopct='%1.1f%%')
+    plt.title("Portfolio Allocation")
+    ax2.pie([currPortValue["AUS Market"], currPortValue["Cryptocurrency"], currPortValue["US Market"]], labels=["Aus Market", "Cryptocurrency", "US Market"], autopct='%1.1f%%')
+#    ax2.title("Portfolio Asset Class Allocation")
+    plt.show()
+
     plt.plot_date(portValDf['Date'], portValDf['Value'], xdate=True)
     plt.title("Portfolio Performance over time")
     plt.ylabel("Portfolio Value ($)")
