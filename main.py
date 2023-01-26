@@ -55,6 +55,13 @@ class Security:
         if priceSold:
             return (priceSold - self.dcaPrice) * self.units
 
+    def dividend_addition(self, units):
+        self.units = self.units + units
+        self.currValueAUD = self.units * self.currPrice * self.AUD_exchange_rate
+        self.percentReturns = self.calculatePercentReturns()
+
+        return units * self.currPrice * self.AUD_exchange_rate
+
     def getTicker(self):
         return self.ticker
 
@@ -183,6 +190,10 @@ def main(argv):
                 print(f"{ticker.Ticker} has not been bought prior to the sell event, please review the portfolio "
                       f"spreadsheet")
                 sys.exit()
+        elif ticker.Action == "DIVIDEND":
+            realisedProfitLoss += stonks[ticker.Ticker].dividend_addition(ticker.Units)
+
+
 
     portfolioDf = {"Ticker": [], "Units Purchased": [], "Initial Price": [], "Latest Close": [], "Initial AUD Asset Value": [], "Current AUD Asset Value": [], "Percentage Returns": []}
     for key in sorted(stonks):
