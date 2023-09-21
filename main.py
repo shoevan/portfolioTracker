@@ -236,7 +236,8 @@ def main(argv):
         if portValDf.iloc[len(portValDf) - 1][0] != dt.today().strftime('%d/%m/%Y'):
             df2 = pd.DataFrame([[dt.today().strftime('%d/%m/%Y'), currPortValue["All"], percPortChange["All"]]],
                                columns=['Date', 'Value', 'Percentage'])
-            portValDf = portValDf.append(df2, ignore_index=True)
+            # portValDf = portValDf.concat([portValDf,df2], ignore_index=True)
+            portValDf = pd.concat([portValDf, df2], ignore_index=True)
         else:
             portValDf.iloc[len(portValDf) - 1, 1] = str(float("{:.2f}".format(currPortValue["All"])))
             portValDf.iloc[len(portValDf) - 1, 2] = str(float("{:.2f}".format(percPortChange["All"])))
