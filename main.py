@@ -11,26 +11,27 @@ from datetime import datetime as dt
 WRITE_TO_FILE=1
 
 class Security:
-    def __init__(self, ticker, units, dcaPrice, prevClose, AUD_exchange_rate):
+    def __init__(self, ticker, units, dcaPrice, prevClose, init_AUD_exchange_rate = 1, current_AUD_exchange_rate = 1):
         self.ticker = ticker
         self.units = units
         self.dcaPrice = dcaPrice
         self.currPrice = prevClose
-        self.AUD_exchange_rate = AUD_exchange_rate
+        self.init_AUD_exchange_rate = init_AUD_exchange_rate
+        self.current_AUD_exchange_rate = current_AUD_exchange_rate
 
         if self.ticker.endswith("AX"):
-            self.AUD_exchange_rate = 1
             self.assetType = "AUS Market"
+            self.current_AUD_exchange_rate = 1
         elif self.ticker.endswith("USD"):
             self.assetType = "Cryptocurrency"
         else:
             self.assetType = "US Market"
 
-        self.initValueAUD = self.setValueAUD(self.dcaPrice)
-        self.currValueAUD = self.setValueAUD(self.currPrice)
+        self.initValueAUD = self.setValueAUD(self.dcaPrice, "initial")
+        self.currValueAUD = self.setValueAUD(self.currPrice, "current")
         self.percentReturns = self.calculatePercentReturns()
 
-    def dollarCostAveragingHandler(self, units, priceBought):
+    def dollarCostAveragingHandler(self, units, priceBought, AUD_exchange_rate):
         initUnits = self.units
         initPriceBought = self.dcaPrice
         currPrice = self.currPrice
@@ -39,8 +40,8 @@ class Security:
 
         self.units  = initUnits + units
         self.dcaPrice = (initPriceBought * initUnits + priceBought * units) / self.units
-        self.initValueAUD = initValueAUD + units * priceBought * self.AUD_exchange_rate
-        self.currValueAUD = currValueAUD + units * currPrice * self.AUD_exchange_rate
+        self.initValueAUD = initValueAUD + units * priceBought * AUD_exchange_rate
+        self.currValueAUD = currValueAUD + units * currPrice * self.current_AUD_exchange_rate
         self.percentReturns = self.calculatePercentReturns()
 
     def sellEventHandler(self, units, priceSold):
@@ -50,17 +51,18 @@ class Security:
             sys.exit()
         else:
             self.units = self.units - units
-            self.initValueAUD = self.setValueAUD(self.dcaPrice)
-            self.currValueAUD = self.setValueAUD(self.currPrice)
+            self.initValueAUD = self.setValueAUD(self.dcaPrice, "initial")
+            self.currValueAUD = self.setValueAUD(self.currPrice, "current")
+        self.percentReturns = self.calculatePercentReturns()
         if priceSold:
             return (priceSold - self.dcaPrice) * self.units
 
     def dividend_addition(self, units):
         self.units = self.units + units
-        self.currValueAUD = self.units * self.currPrice * self.AUD_exchange_rate
+        self.currValueAUD = self.units * self.currPrice * self.current_AUD_exchange_rate
         self.percentReturns = self.calculatePercentReturns()
 
-        return units * self.currPrice * self.AUD_exchange_rate
+        return units * self.currPrice * self.current_AUD_exchange_rate
 
     def getTicker(self):
         return self.ticker
@@ -86,8 +88,11 @@ class Security:
     def getPercentReturns(self):
         return self.percentReturns
 
-    def setValueAUD(self, price):
-        return self.units * price * self.AUD_exchange_rate
+    def setValueAUD(self, price, mode):
+        if mode == "initial":
+            return self.units * price * self.init_AUD_exchange_rate
+        else:
+            return self.units * price * self.current_AUD_exchange_rate
 
     def calculatePercentReturns(self):
         return self.currValueAUD / self.initValueAUD * 100 - 100
@@ -131,10 +136,10 @@ def main(argv):
 
     # Import initial portfolio investment and output csv as a DataFrame
     try:
-        portfolio = pd.read_excel(portfolioDir, usecols="B:E")
+        portfolio = pd.read_excel(portfolioDir, usecols="B:H")
         stocks = pd.DataFrame(portfolio)
         # Drops any empty values
-        stocks = stocks.dropna()
+        # stocks = stocks.dropna()
         logging.debug("Stock portfolio input file: %s", stocks)
     except FileNotFoundError:
         print(f"{portfolio} not found. Require an excel spreadsheet listing transactions. Please see script usage page")
@@ -173,13 +178,13 @@ def main(argv):
     for ticker in stocks.itertuples():
         if ticker.Action == "BUY":
             if ticker.Ticker in stonks:
-                stonks[ticker.Ticker].dollarCostAveragingHandler(ticker.Units, ticker.Price)
+                stonks[ticker.Ticker].dollarCostAveragingHandler(ticker.Units, ticker.Price, ticker._7)
             else:
                 dateOffset = len(dataDf['Adj Close'][ticker.Ticker].index) - 1
                 while math.isnan(dataDf['Adj Close'][ticker.Ticker].iloc[dateOffset]):
                     dateOffset -= 1
                 prevClose = dataDf['Adj Close'][ticker.Ticker].iloc[dateOffset]
-                stonks[ticker.Ticker] = Security(ticker.Ticker, ticker.Units, ticker.Price, prevClose, usdToAUD)
+                stonks[ticker.Ticker] = Security(ticker.Ticker, ticker.Units, ticker.Price, prevClose, ticker._7, usdToAUD)
         elif ticker.Action == "SELL" or ticker.Action == "TRANSACTION":
             if ticker.Ticker in stonks:
                 if ticker.Action == "SELL":
