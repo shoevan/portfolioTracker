@@ -16,6 +16,7 @@ class Security:
         self.units = units
         self.dcaPrice = dcaPrice
         self.currPrice = prevClose
+        self.dividend_fiat_returns = 0
         self.init_AUD_exchange_rate = init_AUD_exchange_rate
         self.current_AUD_exchange_rate = current_AUD_exchange_rate
 
@@ -98,9 +99,16 @@ class Security:
 
     def setValueAUD(self, price, mode):
         if mode == "initial":
-            return self.units * price * self.init_AUD_exchange_rate
+            return self.units * price * self.init_AUD_exchange_rate + self.dividend_fiat_returns
         else:
-            return self.units * price * self.current_AUD_exchange_rate
+            return self.units * price * self.current_AUD_exchange_rate + self.dividend_fiat_returns
+    
+    def setDividendFiatReturns(self, addition, usd_to_aud):
+        if self.assetType != "AUS Market":
+            addition *= usd_to_aud
+        self.dividend_fiat_returns += addition
+        self.currValueAUD += addition
+        self.percentReturns = self.calculatePercentReturns()
 
     def calculatePercentReturns(self):
         return self.currValueAUD / self.initValueAUD * 100 - 100
@@ -214,6 +222,8 @@ def main(argv):
                 sys.exit()
         elif ticker.Action == "DIVIDEND":
             realisedProfitLoss += stonks[ticker.Ticker].dividend_addition(ticker.Units)
+        elif ticker.Action == "DIVIDEND-FIAT":
+            stonks[ticker.Ticker].setDividendFiatReturns(ticker.Price, usdToAUD)
 
 
 
