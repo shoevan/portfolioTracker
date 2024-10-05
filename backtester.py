@@ -2,12 +2,23 @@ import yfinance as yf
 from datetime import datetime, timezone, timedelta
 import pandas as pd
 
+Crypto = ("SOL-USD", "BTC-USD")
+US_Shares = ("SPUS", "AAPL")
+
 
 def main():
-    spus = yf.Ticker("BTC-USD")
-    prices = pd.DataFrame(spus.history(period="5y"))
+    ticker = "AAPL"
+
+    if ticker in Crypto:
+        tz_string_non_dst = "+00"
+        tz_string_dst = "+00"
+    elif ticker in US_Shares:
+        tz_string_non_dst = "-04"
+        tz_string_dst = "-05"
+    ticker_info = yf.Ticker(ticker)
+    prices = pd.DataFrame(ticker_info.history(period="5y"))
     # print(prices.to_string())
-    money_added = 1000
+    money_added = 100
     total = 0
     total_current_value = 0
     total_units = 0
@@ -24,8 +35,8 @@ def main():
         else: 
             month_zero_pad = ""
         date_string = f"{year}-{month_zero_pad}{month}-0{day}"
-        tz_string = 0
-        full_date_string = f"{date_string} 00:00:00+0{tz_string}:00"
+        tz_string = tz_string_non_dst
+        full_date_string = f"{date_string} 00:00:00{tz_string}:00"
         date = pd.DatetimeIndex(data=[full_date_string])
         found = False
         while not found:
@@ -39,10 +50,10 @@ def main():
                 else: 
                     day_zero_pad = ""
                 if day > 30 or (day > 28 and month == 2):
-                    tz_string = "5"
+                    tz_string = tz_string_dst
                     day = 1
                 date_string = f"{year}-{month_zero_pad}{month}-{day_zero_pad}{day}"
-                full_date_string = f"{date_string} 00:00:00+0{tz_string}:00"
+                full_date_string = f"{date_string} 00:00:00{tz_string}:00"
                 date = pd.DatetimeIndex(data=[full_date_string])
         total += money_added
         if dca_price == 0:

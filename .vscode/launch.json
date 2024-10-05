@@ -1,0 +1,23 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Portfolio",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "args": ["-i", "G:\\My Drive\\Finances\\Stock Portfolio.xlsx", "-o", "G:\\My Drive\\Finances\\Portfolio Value Tracking.csv"]
+        },
+        {
+            "name": "backtester",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/backtester.py",
+            "console": "integratedTerminal"
+        }
+    ]
+}
