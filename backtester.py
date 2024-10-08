@@ -5,19 +5,40 @@ import pandas as pd
 Crypto = ("SOL-USD", "BTC-USD")
 US_Shares = ("SPUS", "AAPL")
 
+def calc_brokerage_cost(ticker_type: str, amount_aud: int, usd_aud_rate):
+    if ticker_type == "Cryptocurrency":
+        brokerage_cost = 0.01 * amount_aud
+        remaining_amount = amount_aud - brokerage_cost
+    elif ticker_type == "US_Shares":
+        brokerage_cost = 0.007 * amount_aud
+        usd = amount_aud / usd_aud_rate
+        remaining_amount = usd - brokerage_cost
+
 
 def main():
     ticker = "AAPL"
-
     if ticker in Crypto:
+        ticker_type = {
+            "type": "Cryptocurrency",
+            "tz_string_non_dst": "+00",
+            "tz_string_dst": "+00"
+
+        }
         tz_string_non_dst = "+00"
         tz_string_dst = "+00"
     elif ticker in US_Shares:
+        ticker_type = {
+            "type": "US_Shares",
+            "tz_string_non_dst": "-04",
+            "tz_string_dst": "-05"
+
+        }
         tz_string_non_dst = "-04"
         tz_string_dst = "-05"
     ticker_info = yf.Ticker(ticker)
     prices = pd.DataFrame(ticker_info.history(period="5y"))
-    # print(prices.to_string())
+    dividends = prices["Dividends"]
+    print(dividends.to_string())
     money_added = 100
     total = 0
     total_current_value = 0
@@ -27,9 +48,9 @@ def main():
     month = 4
     year = 2020
     date_datetime = datetime(year=year, month=month, day=day,  tzinfo=timezone(offset=-timedelta(hours=4), name="America/New_York"))
-    while date_datetime < datetime.now(tz=timezone(offset=-timedelta(hours=4), name="America/New_York")):
-        day = 1
-        date_datetime = datetime(year=year, month=month, day=day,  tzinfo=timezone(offset=-timedelta(hours=4), name="America/New_York"))
+    date_now = datetime.now(tz=timezone(offset=-timedelta(hours=4), name="America/New_York"))
+    while date_datetime < date_now:
+        print(f"{date_datetime} < {date_now}")
         if month < 10:
             month_zero_pad = "0"
         else: 
@@ -63,11 +84,14 @@ def main():
         total_units = total_units + money_added / date_price
         total_current_value = total_units * date_price
         # dca_price = total / total_units + money_added / date_price
+        date_datetime = datetime(year=year, month=month, day=day,  tzinfo=timezone(offset=-timedelta(hours=4), name="America/New_York"))
+        print(f"{date_datetime}: Price: {date_price}; Total added = ${total}; Total current value = ${total_current_value}; Total Units = {total_units}; DCA = {dca_price}")
         month += 1
+        day = 1
         if month == 13:
             month = 1
             year += 1
-        print(f"{date_datetime}: Price: {date_price}; Total added = ${total}; Total current value = ${total_current_value}; Total Units = {total_units}; DCA = {dca_price}")
+        date_datetime = datetime(year=year, month=month, day=day,  tzinfo=timezone(offset=-timedelta(hours=4), name="America/New_York"))
         
 
 
