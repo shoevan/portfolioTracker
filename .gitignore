@@ -1,3 +1,4 @@
 /portfolioTracker.log
 .venv
 venv
+*.cache

@@ -17,6 +17,7 @@ class Security:
         self.dcaPrice = dcaPrice
         self.currPrice = prevClose
         self.dividend_fiat_returns = 0
+        self.dividend_returns = 0
         self.init_AUD_exchange_rate = init_AUD_exchange_rate
         self.current_AUD_exchange_rate = current_AUD_exchange_rate
 
@@ -62,6 +63,7 @@ class Security:
 
     def dividend_addition(self, units):
         self.units = self.units + units
+        self.dividend_returns += units
         self.currValueAUD = self.units * self.currPrice * self.current_AUD_exchange_rate
         self.percentReturns = self.calculatePercentReturns()
 
@@ -90,6 +92,12 @@ class Security:
 
     def getCurrValue(self):
         return self.currValueAUD
+    
+    def getDividendFiatReturns(self):
+        return self.dividend_fiat_returns * self.current_AUD_exchange_rate
+    
+    def getDividendReturns(self):
+        return self.dividend_returns * self.currPrice * self.current_AUD_exchange_rate
 
     def getPercentReturns(self):
         return self.percentReturns
@@ -227,7 +235,7 @@ def main(argv):
 
 
 
-    portfolioDf = {"Ticker": [], "Units Purchased": [], "Initial Price": [], "Latest Close": [], "Initial AUD Asset Value": [], "Initial AUD CPI Adj. Value" : [], "Current AUD Asset Value": [], "Percentage Returns": [], "Percentage Returns CPI Adj.": []}
+    portfolioDf = {"Ticker": [], "Units Purchased": [], "Initial Price": [], "Latest Close": [], "Initial AUD Asset Value": [], "Initial AUD CPI Adj. Value" : [], "Current AUD Asset Value": [], "Dividend Returns": [], "Dividend Returns Fiat": [], "Percentage Returns": [], "Percentage Returns CPI Adj.": []}
     for key in sorted(stonks):
         portfolioDf["Ticker"].append(stonks[key].getTicker())
         portfolioDf["Units Purchased"].append(f"{stonks[key].getUnits():.2f}")
@@ -236,6 +244,8 @@ def main(argv):
         portfolioDf["Initial AUD Asset Value"].append(f"{stonks[key].getInitValue():.2f}")
         portfolioDf["Initial AUD CPI Adj. Value"].append(f"{stonks[key].getInitCPIAdjustedValue():.2f}")
         portfolioDf["Current AUD Asset Value"].append(f"{stonks[key].getCurrValue():.2f}")
+        portfolioDf["Dividend Returns"].append(f"{stonks[key].getDividendReturns():.2f}")
+        portfolioDf["Dividend Returns Fiat"].append(f"{stonks[key].getDividendFiatReturns():.2f}")
         portfolioDf["Percentage Returns"].append(f"{stonks[key].getPercentReturns():.2f}")
         portfolioDf["Percentage Returns CPI Adj."].append(f"{stonks[key].getPercentReturnsCPIAdj():.2f}")
         initPortValue["All"] += stonks[key].getInitValue()

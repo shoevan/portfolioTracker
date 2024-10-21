@@ -5,12 +5,20 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Portfolio",
+            "name": "Portfolio laptop",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
             "args": ["-i", "G:\\My Drive\\Finances\\Stock Portfolio.xlsx", "-o", "G:\\My Drive\\Finances\\Portfolio Value Tracking.csv"]
+        },
+        {
+            "name": "Portfolio desktop",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "args": ["-i", "E:\\Users\\sajib\\Google Drive\\Finances\\Stock Portfolio.xlsx", "-o", "E:\\Users\\sajib\\Google Drive\\Finances\\Portfolio Value Tracking.csv"]
         },
         {
             "name": "backtester",
