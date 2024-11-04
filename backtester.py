@@ -87,9 +87,9 @@ def closest_aud_price(aud_prices, year: int, month: int, buy_day: int):
     return aud_price
 
 def main():
-    ticker = "BTC-USD"
+    ticker = "SPUS"
     day, month, year = 1, 1, 2023
-    amount_added = 100
+    amount_added = 1000
     if ticker in Crypto:
         ticker_type = {
             "type": "Cryptocurrency",
@@ -181,7 +181,7 @@ def main():
         # dca_price = total / total_units + money_added / date_price
         date_datetime = datetime(year=year, month=month, day=day,  tzinfo=timezone(
             offset=-timedelta(hours=4), name="America/New_York"))
-        print(f"{date_datetime}: \n\tPrice: {date_price:.2f}; Total added = ${total * usd_aud:.2f}; Total brokerage cost = ${total_brokerage_cost}; Total current value = ${total_current_value:.2f}; Return = {(total_current_value / total - 1) * 100:.2f}%; Total Dividend Income: {dividend_total:.2f}; Total Units = {total_units:.2f}; DCA = {dca_price:.2f}")
+        print(f"{date_datetime}: \n\tPrice: {date_price:.2f}; Total added = ${total * usd_aud:.2f}; Total brokerage cost = ${total_brokerage_cost}; Total current value = ${total_current_value * usd_aud:.2f}; Return = {(total_current_value / total - 1) * 100:.2f}%; Total Dividend Income: {dividend_total:.2f}; Total Units = {total_units:.2f}; DCA = {dca_price:.2f}")
         month += 1
         day = 1
         if month == 13:
