@@ -235,19 +235,19 @@ def main(argv):
 
 
 
-    portfolioDf = {"Ticker": [], "Units Purchased": [], "Initial Price": [], "Latest Close": [], "Initial AUD Asset Value": [], "Initial AUD CPI Adj. Value" : [], "Current AUD Asset Value": [], "Dividend Returns": [], "Dividend Returns Fiat": [], "Percentage Returns": [], "Percentage Returns CPI Adj.": []}
+    portfolioDf = {"Ticker": [], "Units": [], "Init. Price": [], "Close": [], "Init. AUD Value": [], "Initial AUD CPI Adj." : [], "Current AUD Value": [], "Dividends Val.": [], "Dividend Fiat": [], "% Returns": [], "% CPI Adj.": []}
     for key in sorted(stonks):
         portfolioDf["Ticker"].append(stonks[key].getTicker())
-        portfolioDf["Units Purchased"].append(f"{stonks[key].getUnits():.2f}")
-        portfolioDf["Initial Price"].append(f"{stonks[key].getInitPrice():.2f}")
-        portfolioDf["Latest Close"].append(f"{stonks[key].getCurrPrice():.2f}")
-        portfolioDf["Initial AUD Asset Value"].append(f"{stonks[key].getInitValue():.2f}")
-        portfolioDf["Initial AUD CPI Adj. Value"].append(f"{stonks[key].getInitCPIAdjustedValue():.2f}")
-        portfolioDf["Current AUD Asset Value"].append(f"{stonks[key].getCurrValue():.2f}")
-        portfolioDf["Dividend Returns"].append(f"{stonks[key].getDividendReturns():.2f}")
-        portfolioDf["Dividend Returns Fiat"].append(f"{stonks[key].getDividendFiatReturns():.2f}")
-        portfolioDf["Percentage Returns"].append(f"{stonks[key].getPercentReturns():.2f}")
-        portfolioDf["Percentage Returns CPI Adj."].append(f"{stonks[key].getPercentReturnsCPIAdj():.2f}")
+        portfolioDf["Units"].append(f"{stonks[key].getUnits():.2f}")
+        portfolioDf["Init. Price"].append(f"{stonks[key].getInitPrice():.2f}")
+        portfolioDf["Close"].append(f"{stonks[key].getCurrPrice():.2f}")
+        portfolioDf["Init. AUD Value"].append(f"{stonks[key].getInitValue():.2f}")
+        portfolioDf["Initial AUD CPI Adj."].append(f"{stonks[key].getInitCPIAdjustedValue():.2f}")
+        portfolioDf["Current AUD Value"].append(f"{stonks[key].getCurrValue():.2f}")
+        portfolioDf["Dividends Val."].append(f"{stonks[key].getDividendReturns():.2f}")
+        portfolioDf["Dividend Fiat"].append(f"{stonks[key].getDividendFiatReturns():.2f}")
+        portfolioDf["% Returns"].append(f"{stonks[key].getPercentReturns():.2f}")
+        portfolioDf["% CPI Adj."].append(f"{stonks[key].getPercentReturnsCPIAdj():.2f}")
         initPortValue["All"] += stonks[key].getInitValue()
         initPortValue["All CPI Adj."] += stonks[key].getInitCPIAdjustedValue()
         initPortValue[stonks[key].getAssetType()] += stonks[key].getInitValue()
