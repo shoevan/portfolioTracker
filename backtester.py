@@ -152,8 +152,9 @@ def strategy_price(ticker_prices: pd.DataFrame, initial_buy_date: datetime, stra
 
 def main():
     tickers = ("BTC-USD", "SOL-USD", "ETH-USD", "XRP-USD")
-    strategy = "Blind"
-    day, month, year = 15, 1, 2021
+    strategy = "Red Day"
+    start_day, start_month, start_year = 15, 1, 2023
+    end_day, end_month, end_year = 15, 1, 2024
     amount_added = 100
 
     session = CachedSession("yfinance.cache")
@@ -184,36 +185,39 @@ def main():
         total_units = 0
         dca_price = 0
         prev_month_buy_day = 0
-        initial_date = datetime(year=year, month=month,
-                                day=day,  tzinfo=ticker_type["timezone"])
-        date_datetime = datetime(year=year, month=month,
-                                 day=day,  tzinfo=ticker_type["timezone"])
+        initial_date = datetime(year=start_year, month=start_month,
+                                day=start_day,  tzinfo=ticker_type["timezone"])
+        start_date = datetime(year=start_year, month=start_month,
+                              day=start_day,  tzinfo=ticker_type["timezone"])
+        end_date = datetime.now(tz=ticker_type["timezone"])
+        if "end_day" in locals():
+            end_date = datetime(year=end_year, month=end_month,
+                                day=end_day,  tzinfo=ticker_type["timezone"])
         day_delta = timedelta(days=1)
         month_delta = relativedelta(months=1)
-        date_now = datetime.now(tz=ticker_type["timezone"])
-        while date_datetime < date_now:
-            date_string = date_datetime.strftime('%Y-%m-%d')
-            utc_offset_str = get_utc_offset_str(date=date_datetime)
+        while start_date < end_date:
+            date_string = start_date.strftime('%Y-%m-%d')
+            utc_offset_str = get_utc_offset_str(date=start_date)
             full_date_string = f"{date_string} 00:00:00{utc_offset_str}"
             datetime_index = pd.DatetimeIndex(data=[full_date_string])
             found = False
             while not found:
                 try:
                     # date_price = ticker_prices["Close"].loc[datetime_index][0]
-                    date_price, date_datetime = strategy_price(
-                        ticker_prices=ticker_prices, initial_buy_date=date_datetime, strategy=strategy)
+                    date_price, start_date = strategy_price(
+                        ticker_prices=ticker_prices, initial_buy_date=start_date, strategy=strategy)
                     if ticker_type["type"] in ("US_Shares", "Cryptocurrency"):
                         usd_aud = closest_aud_price(
-                            aud_prices=aud_prices, buy_date=date_datetime)
+                            aud_prices=aud_prices, buy_date=start_date)
                     else:
                         usd_aud = 1
                     found = True
-                    dividend_total += calc_dividends(ticker_type, total_units=total_units, dividends=dividends, buy_date=date_datetime,
+                    dividend_total += calc_dividends(ticker_type, total_units=total_units, dividends=dividends, buy_date=start_date,
                                                      prev_month_buy_day=prev_month_buy_day, tz_string=utc_offset_str)
-                    prev_month_buy_day = date_datetime.day
+                    prev_month_buy_day = start_date.day
                 except KeyError:
-                    date_datetime += day_delta
-                    date_string = date_datetime.strftime('%Y-%m-%d')
+                    start_date += day_delta
+                    date_string = start_date.strftime('%Y-%m-%d')
                     full_date_string = f"{date_string} 00:00:00{utc_offset_str}"
                     datetime_index = pd.DatetimeIndex(data=[full_date_string])
 
@@ -230,13 +234,13 @@ def main():
             total_units = total_units + units_bought
             total_current_value = total_units * date_price * usd_aud
             # print(f"{date_datetime}: \n\tPrice: {date_price:.2f}; Total added = ${total:.2f}; Total brokerage cost = ${total_brokerage_cost:.2f}; Total current value = ${total_current_value:.2f}; Return = {(total_current_value / total - 1) * 100:.2f}%; Total Dividend Income: {dividend_total * usd_aud:.2f}; Total Units = {total_units:.2f}; DCA = {dca_price:.2f}")
-            date_datetime = date_datetime.replace(day=day)
-            date_datetime += month_delta
+            start_date = start_date.replace(day=start_day)
+            start_date += month_delta
 
         found = False
         day_delta = timedelta(days=1)
-        date_shift = date_now
-        print(f"{ticker=}; {strategy=}; From {initial_date.strftime('%Y-%m-%d')}")
+        date_shift = end_date
+        print(f"{ticker=}; {strategy=}; From {initial_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
         while not found:
             try:
                 date_string = date_shift.strftime('%Y-%m-%d')
@@ -247,7 +251,7 @@ def main():
                     usd_aud = closest_aud_price(
                         aud_prices=aud_prices, buy_date=date_shift)
                 total_current_value = total_units * date_price * usd_aud
-                print(f"{date_now}: \n\tPrice: {date_price:.2f}; Total added = ${total:.2f}; Total brokerage cost = ${total_brokerage_cost:.2f}; Total current value = ${total_current_value:.2f}; Return = {(total_current_value / total - 1) * 100:.2f}%; Total Dividend Income: {dividend_total * usd_aud:.2f}; Total Units = {total_units:.2f}; DCA = {dca_price:.2f}")
+                print(f"{end_date}: \n\tPrice: {date_price:.2f}; Total added = ${total:.2f}; Total brokerage cost = ${total_brokerage_cost:.2f}; Total current value = ${total_current_value:.2f}; Return = {(total_current_value / total - 1) * 100:.2f}%; Total Dividend Income: {dividend_total * usd_aud:.2f}; Total Units = {total_units:.2f}; DCA = {dca_price:.2f}")
                 found = True
             except KeyError:
                 date_shift -= day_delta
