@@ -11,99 +11,113 @@ import ausdex
 WRITE_TO_FILE=1
 
 class Security:
-    def __init__(self, ticker, units, dcaPrice, prevClose, init_buy_date, init_AUD_exchange_rate = 1, current_AUD_exchange_rate = 1):
+    def __init__(self, ticker, units, dca_price, prevClose, init_buy_date, init_AUD_exchange_rate = 1, current_AUD_exchange_rate = 1):
         self.ticker = ticker
         self.units = units
-        self.dcaPrice = dcaPrice
-        self.currPrice = prevClose
+        self.init_units = units
+        self.sold_units = 0
+        self.init_price = dca_price
+        self.dca_price = dca_price
+        self.sold_dca_price = 0
+        self.curr_price = prevClose
         self.dividend_fiat_returns = 0
         self.dividend_returns = 0
         self.init_AUD_exchange_rate = init_AUD_exchange_rate
         self.current_AUD_exchange_rate = current_AUD_exchange_rate
 
         if self.ticker.endswith("AX"):
-            self.assetType = "AUS Market"
+            self.asset_type = "AUS Market"
             self.current_AUD_exchange_rate = 1
         elif self.ticker.endswith("USD"):
-            self.assetType = "Cryptocurrency"
+            self.asset_type = "Cryptocurrency"
         else:
-            self.assetType = "US Market"
+            self.asset_type = "US Market"
 
-        self.initValueAUD = self.setValueAUD(self.dcaPrice, "initial")
-        self.initValueCPIAdjustedAUD = ausdex.calc_inflation(value=self.initValueAUD, original_date=init_buy_date, location="Brisbane")
-        self.currValueAUD = self.setValueAUD(self.currPrice, "current")
-        self.percentReturns = self.calculatePercentReturns()
+        self.init_value_AUD = self.setValueAUD(self.dca_price, "initial")
+        self.init_value_CPI_Adjusted_AUD = ausdex.calc_inflation(value=self.init_value_AUD, original_date=init_buy_date, location="Brisbane")
+        self.curr_value_AUD = self.setValueAUD(self.curr_price, "current")
+        self.sold_value_AUD = 0
+        self.percent_returns = self.calculatePercentReturns()
 
     def dollarCostAveragingHandler(self, units, priceBought, AUD_exchange_rate, buy_date):
         initUnits = self.units
-        initPriceBought = self.dcaPrice
-        currPrice = self.currPrice
-        initValueAUD = self.initValueAUD
-        currValueAUD = self.currValueAUD
+        initPriceBought = self.dca_price
+        currPrice = self.curr_price
+        initValueAUD = self.init_value_AUD
+        currValueAUD = self.curr_value_AUD
 
         self.units  = initUnits + units
-        self.dcaPrice = (initPriceBought * initUnits + priceBought * units) / self.units
-        self.initValueAUD = initValueAUD + units * priceBought * AUD_exchange_rate
-        self.initValueCPIAdjustedAUD = self.initValueCPIAdjustedAUD + ausdex.calc_inflation(value=units * priceBought * AUD_exchange_rate, original_date=buy_date, location="Brisbane")
-        self.currValueAUD = currValueAUD + units * currPrice * self.current_AUD_exchange_rate
-        self.percentReturns = self.calculatePercentReturns()
+        self.dca_price = (initPriceBought * initUnits + priceBought * units) / self.units
+        self.init_value_AUD = initValueAUD + units * priceBought * AUD_exchange_rate
+        self.init_value_CPI_Adjusted_AUD = self.init_value_CPI_Adjusted_AUD + ausdex.calc_inflation(value=units * priceBought * AUD_exchange_rate, original_date=buy_date, location="Brisbane")
+        self.curr_value_AUD = currValueAUD + units * currPrice * self.current_AUD_exchange_rate
+        self.percent_returns = self.calculatePercentReturns()
 
-    def sellEventHandler(self, units, priceSold):
+    def sellEventHandler(self, units, price_sold):
         if(self.units < units):
             print(f"Error: Units sold for {self.getTicker()} cannot be greater than units pre-existing in portfolio. "
                   f"Please update the portfolio spreadsheet with corrected units")
             sys.exit()
         else:
             self.units = self.units - units
-            self.initValueAUD = self.setValueAUD(self.dcaPrice, "initial")
-            self.currValueAUD = self.setValueAUD(self.currPrice, "current")
-        self.percentReturns = self.calculatePercentReturns()
-        if priceSold:
-            return (priceSold - self.dcaPrice) * self.units
+            self.sold_dca_price = (self.sold_dca_price * self.sold_units + units * price_sold) / (self.sold_units + units)
+            self.sold_units += units
+            #TODO: Need to get aud at time of sale
+            self.sold_value_AUD = self.sold_units * self.sold_dca_price * self.current_AUD_exchange_rate
+            self.init_value_AUD = self.units * self.dca_price * self.init_AUD_exchange_rate
+            if self.units == 0.0:
+                self.init_value_AUD = self.init_units * self.init_price * self.init_AUD_exchange_rate
+                self.curr_value_AUD = 0
+            else:
+                self.curr_value_AUD = self.units * self.curr_price * self.current_AUD_exchange_rate
+        self.percent_returns = self.calculatePercentReturns()
+        if price_sold:
+            return (price_sold - self.dca_price) * self.units
 
     def dividend_addition(self, units):
         self.units = self.units + units
         self.dividend_returns += units
-        self.currValueAUD = self.units * self.currPrice * self.current_AUD_exchange_rate
-        self.percentReturns = self.calculatePercentReturns()
+        self.curr_value_AUD = self.units * self.curr_price * self.current_AUD_exchange_rate
+        self.percent_returns = self.calculatePercentReturns()
 
-        return units * self.currPrice * self.current_AUD_exchange_rate
+        return units * self.curr_price * self.current_AUD_exchange_rate
 
     def getTicker(self):
         return self.ticker
 
     def getAssetType(self):
-        return self.assetType
+        return self.asset_type
     
     def getUnits(self):
         return self.units
 
     def getInitPrice(self):
-        return self.dcaPrice
+        return self.dca_price
 
     def getCurrPrice(self):
-        return self.currPrice
+        return self.curr_price
 
     def getInitValue(self):
-        return self.initValueAUD
+        return self.init_value_AUD
     
     def getInitCPIAdjustedValue(self):
-        return self.initValueCPIAdjustedAUD
+        return self.init_value_CPI_Adjusted_AUD
 
     def getCurrValue(self):
-        return self.currValueAUD
+        return self.curr_value_AUD
     
     def getDividendFiatReturns(self):
         return self.dividend_fiat_returns * self.current_AUD_exchange_rate
     
     def getDividendReturns(self):
-        return self.dividend_returns * self.currPrice * self.current_AUD_exchange_rate
+        return self.dividend_returns * self.curr_price * self.current_AUD_exchange_rate
 
     def getPercentReturns(self):
-        return self.percentReturns
+        return self.percent_returns
     
     def getPercentReturnsCPIAdj(self):
-        return self.currValueAUD / self.initValueCPIAdjustedAUD * 100 - 100
+        value = self.curr_value_AUD + self.sold_value_AUD + self.dividend_fiat_returns
+        return value / self.init_value_CPI_Adjusted_AUD * 100 - 100
 
     def setValueAUD(self, price, mode):
         if mode == "initial":
@@ -112,14 +126,15 @@ class Security:
             return self.units * price * self.current_AUD_exchange_rate + self.dividend_fiat_returns
     
     def setDividendFiatReturns(self, addition, usd_to_aud):
-        if self.assetType != "AUS Market":
+        if self.asset_type != "AUS Market":
             addition *= usd_to_aud
         self.dividend_fiat_returns += addition
-        self.currValueAUD += addition
-        self.percentReturns = self.calculatePercentReturns()
+        self.curr_value_AUD += addition
+        self.percent_returns = self.calculatePercentReturns()
 
     def calculatePercentReturns(self):
-        return self.currValueAUD / self.initValueAUD * 100 - 100
+        value = self.curr_value_AUD + self.sold_value_AUD + self.dividend_fiat_returns
+        return value / self.init_value_AUD * 100 - 100
 
 def plotPieChart(labels, value):
     fig1, ax1 = plt.subplots()
@@ -199,43 +214,44 @@ def main(argv):
         if ticker.Ticker not in nameTickers:
             nameTickers += " " + ticker.Ticker
 
-    dataDf = pd.DataFrame(yf.download(nameTickers, period="3d", prepost=True, threads=1))
+    dataDf = pd.DataFrame(yf.download(nameTickers, period="5d", prepost=True, threads=1))
     logging.debug(dataDf.to_string())
     #Get latest USD/AUD exchange rate
     #Start from the last row available, iterate back until value is not null to get latest closing value
-    dateOffset = len(dataDf['Adj Close']['AUD=X'].index) - 1
-    while math.isnan(dataDf['Adj Close']['AUD=X'].iloc[dateOffset]):
+    dateOffset = len(dataDf['Close']['AUD=X'].index) - 1
+    while math.isnan(dataDf['Close']['AUD=X'].iloc[dateOffset]):
         dateOffset -= 1
-    usdToAUD = dataDf['Adj Close']['AUD=X'].iloc[dateOffset]
+    usdToAUD = dataDf['Close']['AUD=X'].iloc[dateOffset]
     #Loop through each ticker
     for ticker in stocks.itertuples():
         if ticker.Action == "BUY":
             if ticker.Ticker in stonks:
                 stonks[ticker.Ticker].dollarCostAveragingHandler(ticker.Units, ticker.Price, ticker._8, ticker.Date)
             else:
-                dateOffset = len(dataDf['Adj Close'][ticker.Ticker].index) - 1
-                while math.isnan(dataDf['Adj Close'][ticker.Ticker].iloc[dateOffset]):
+                dateOffset = len(dataDf['Close'][ticker.Ticker].index) - 1
+                while math.isnan(dataDf['Close'][ticker.Ticker].iloc[dateOffset]):
                     dateOffset -= 1
-                prevClose = dataDf['Adj Close'][ticker.Ticker].iloc[dateOffset]
+                prevClose = dataDf['Close'][ticker.Ticker].iloc[dateOffset]
                 stonks[ticker.Ticker] = Security(ticker.Ticker, ticker.Units, ticker.Price, prevClose, ticker.Date, ticker._8, usdToAUD)
-        elif ticker.Action == "SELL" or ticker.Action == "TRANSACTION":
+        elif ticker.Action in ("SELL", "TRANSACTION"):
             if ticker.Ticker in stonks:
                 if ticker.Action == "SELL":
                     realisedProfitLoss += stonks[ticker.Ticker].sellEventHandler(ticker.Units, ticker.Price)
                 else:
-                    stonks[ticker.Ticker].sellEventHandler(ticker.Units, None)
+                    stonks[ticker.Ticker].sellEventHandler(ticker.Units, stonks[ticker.Ticker].curr_price)
             else:
                 print(f"{ticker.Ticker} has not been bought prior to the sell event, please review the portfolio "
                       f"spreadsheet")
                 sys.exit()
         elif ticker.Action == "DIVIDEND":
-            realisedProfitLoss += stonks[ticker.Ticker].dividend_addition(ticker.Units)
+            stonks[ticker.Ticker].dividend_addition(ticker.Units)
         elif ticker.Action == "DIVIDEND-FIAT":
             stonks[ticker.Ticker].setDividendFiatReturns(ticker.Price, usdToAUD)
+            realisedProfitLoss += stonks[ticker.Ticker].dividend_fiat_returns
 
 
 
-    portfolioDf = {"Ticker": [], "Units": [], "Init. Price": [], "Close": [], "Init. AUD Value": [], "Initial AUD CPI Adj." : [], "Current AUD Value": [], "Dividends Val.": [], "Dividend Fiat": [], "% Returns": [], "% CPI Adj.": []}
+    portfolioDf = {"Ticker": [], "Units": [], "Init. Price": [], "Close": [], "Init. AUD Value": [], "Initial AUD CPI Adj." : [], "Sold AUD Value": [], "Current AUD Value": [], "Dividends Val.": [], "Dividend Fiat": [], "% Returns": [], "% CPI Adj.": []}
     for key in sorted(stonks):
         portfolioDf["Ticker"].append(stonks[key].getTicker())
         portfolioDf["Units"].append(f"{stonks[key].getUnits():.2f}")
@@ -243,6 +259,7 @@ def main(argv):
         portfolioDf["Close"].append(f"{stonks[key].getCurrPrice():.2f}")
         portfolioDf["Init. AUD Value"].append(f"{stonks[key].getInitValue():.2f}")
         portfolioDf["Initial AUD CPI Adj."].append(f"{stonks[key].getInitCPIAdjustedValue():.2f}")
+        portfolioDf["Sold AUD Value"].append(f"{stonks[key].sold_value_AUD:.2f}")
         portfolioDf["Current AUD Value"].append(f"{stonks[key].getCurrValue():.2f}")
         portfolioDf["Dividends Val."].append(f"{stonks[key].getDividendReturns():.2f}")
         portfolioDf["Dividend Fiat"].append(f"{stonks[key].getDividendFiatReturns():.2f}")

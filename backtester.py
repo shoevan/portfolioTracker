@@ -151,10 +151,10 @@ def strategy_price(ticker_prices: pd.DataFrame, initial_buy_date: datetime, stra
 
 
 def main():
-    tickers = ("BTC-USD", "SOL-USD", "ETH-USD", "XRP-USD")
-    strategy = "Red Day"
-    start_day, start_month, start_year = 15, 1, 2023
-    end_day, end_month, end_year = 15, 1, 2024
+    tickers = ("BTC-USD", "SOL-USD", "ETH-USD", "XRP-USD", "SPUS")
+    strategy = "Blind"
+    start_day, start_month, start_year = 15, 1, 2024
+    # end_day, end_month, end_year = 15, 1, 2024
     amount_added = 100
 
     session = CachedSession("yfinance.cache")

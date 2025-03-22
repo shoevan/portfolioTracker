@@ -26,6 +26,13 @@
             "request": "launch",
             "program": "${workspaceFolder}/backtester.py",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Solana Staking Rewards Tracker",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/solana_staking_reward_tracker.py",
+            "console": "integratedTerminal"
         }
     ]
 }
