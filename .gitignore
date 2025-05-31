@@ -2,3 +2,5 @@
 .venv
 venv
 *.cache
+.env
+results/
